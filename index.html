@@ -33,6 +33,9 @@ h1{font-size:17px;font-weight:700;margin:0;letter-spacing:-.02em;white-space:now
 .dpick input{border:0;background:none;min-height:42px;font-weight:600;padding:0 4px;text-align:center;width:150px;box-shadow:none}
 .dow{font-size:13px;font-weight:600;padding:6px 12px;border-radius:999px;background:var(--fill);color:var(--act);white-space:nowrap}
 .dow.we{background:var(--olbg);color:var(--olt)}
+.mini{display:inline-flex;background:var(--fill);border-radius:999px;padding:2px}
+.mini button{background:none;min-height:30px;padding:4px 10px;font-size:12px;color:var(--mu);border-radius:999px}
+.mini button.on{background:var(--segon);color:var(--tx);box-shadow:0 1px 2px rgba(38,15,1,.12)}
 .ghost{background:none;color:var(--ac);padding:8px 10px;min-height:42px}
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:40;display:grid;grid-template-columns:repeat(5,1fr);background:var(--bar);-webkit-backdrop-filter:saturate(180%) blur(20px);backdrop-filter:saturate(180%) blur(20px);border-top:1px solid var(--bd);padding:6px max(8px,env(safe-area-inset-left,0px)) calc(6px + env(safe-area-inset-bottom,0px))}
 .nav button{background:none;display:flex;flex-direction:column;align-items:center;gap:3px;padding:6px 0;min-height:52px;font-size:11px;color:var(--mu);border-radius:12px}
@@ -172,7 +175,7 @@ window.FB_CFG={apiKey:"AIzaSyBVQl4DJ47oI9ftw252kMEziYr_I7024w4",authDomain:"afmc
   <div class="ctl">
     <div class="datebar">
       <div class="dpick"><button id="pv" aria-label="이전 날"><svg class="i" viewBox="0 0 24 24"><path d="M15 18l-6-6 6-6"/></svg></button><input type="date" id="date" aria-label="날짜"><button id="nx" aria-label="다음 날"><svg class="i" viewBox="0 0 24 24"><path d="M9 18l6-6-6-6"/></svg></button></div>
-      <span id="dow" class="dow"></span><button id="td" class="ghost">오늘</button>
+      <span id="dow" class="dow"></span><span class="mini" id="wkt" role="group" aria-label="일과 기준"><button data-wk="0">주중</button><button data-wk="1">주말</button></span><button id="td" class="ghost">오늘</button>
     </div>
     <nav class="nav" id="vt"></nav>
   </div>
@@ -198,7 +201,7 @@ var ICP={now:'M5 20V11M12 20V5M19 20v-6',guard:'M12 3l7 3v6c0 4.5-3 7.5-7 9-4-1.
   copy:'M9 9h11v11H9zM5 15H4V4h11v1',rpt:'M9 3h6v3H9zM8 4H5v17h14V4h-3M9 12h6M9 16h4',pdf:'M14 3H6v18h12V8zM14 3v5h4M9 13h6M9 17h6',xl:'M3 4h18v16H3zM3 10h18M3 15h18M9 4v16',
   clr:'M3 12a9 9 0 1 0 3-6.7L3 8M3 3v5h5',plus:'M12 5v14M5 12h14',del:'M4 7h16M10 11v6M14 11v6M6 7l1 13h10l1-13M9 7V4h6v3',gun:'M3 10h15l3-2v4h-4l-2 5h-3l1-4H3z',info:'M12 21a9 9 0 1 0 0-18 9 9 0 0 0 0 18zM12 11v6M12 7.5v.5'};
 function ic(k){return '<svg class="i" viewBox="0 0 24 24" aria-hidden="true"><path d="'+ICP[k]+'"/></svg>'}
-var S={names:{},roles:{},days:{},g:{},meal:{},duty:{},leaves:[]};
+var S={names:{},roles:{},days:{},g:{},meal:{},duty:{},hol:{},leaves:[]};
 try{var raw=localStorage.getItem('jeomho_v2');if(raw){var o=JSON.parse(raw);for(var k in o)S[k]=o[k]}}catch(e){}
 function saveLocal(){try{localStorage.setItem('jeomho_v2',JSON.stringify(S))}catch(e){}}
 function save(){S.leaves.forEach(function(L){if(!L.id)L.id='l'+Date.now().toString(36)+Math.random().toString(36).slice(2,6)});saveLocal();push()}
@@ -209,7 +212,14 @@ function own(id){return BR<0||+String(id).split('-')[0]===BR}
 function pad(n){return String(n).padStart(2,'0')}
 function addD(s,n){var d=new Date(s+'T00:00:00Z');d.setUTCDate(d.getUTCDate()+n);return d.toISOString().slice(0,10)}
 function dow(s){return new Date(s+'T00:00:00Z').getUTCDay()}
-function wk(s){var g=dow(s);return g===0||g===6}
+/* 공휴일(대체공휴일 포함). 공휴일은 주말 일과로 처리한다. 목록에 없는 날은 화면의 주중/주말 버튼으로 바꾼다(S.hol). */
+var HOL={'2026-01-01':'신정','2026-02-16':'설날','2026-02-17':'설날','2026-02-18':'설날','2026-03-01':'삼일절','2026-03-02':'대체공휴일','2026-05-05':'어린이날','2026-05-24':'부처님오신날','2026-05-25':'대체공휴일',
+  '2026-06-03':'지방선거','2026-06-06':'현충일','2026-07-17':'제헌절','2026-08-15':'광복절','2026-08-17':'대체공휴일','2026-09-24':'추석','2026-09-25':'추석','2026-09-26':'추석','2026-10-03':'개천절','2026-10-05':'대체공휴일','2026-10-09':'한글날','2026-12-25':'성탄절',
+  '2027-01-01':'신정','2027-02-06':'설날','2027-02-07':'설날','2027-02-08':'설날','2027-02-09':'대체공휴일','2027-03-01':'삼일절','2027-05-01':'노동절','2027-05-03':'대체공휴일','2027-05-05':'어린이날','2027-05-13':'부처님오신날',
+  '2027-06-06':'현충일','2027-07-17':'제헌절','2027-07-19':'대체공휴일','2027-08-15':'광복절','2027-08-16':'대체공휴일','2027-09-14':'추석','2027-09-15':'추석','2027-09-16':'추석','2027-10-03':'개천절','2027-10-04':'대체공휴일','2027-10-09':'한글날','2027-10-11':'대체공휴일','2027-12-25':'성탄절','2027-12-27':'대체공휴일'};
+function wkAuto(s){var g=dow(s);return g===0||g===6||!!HOL[s]}
+function wkSet(s){var o=S.hol&&S.hol[s];return o&&o.v?o.v:''}
+function wk(s){var v=wkSet(s);return v?v==='1':wkAuto(s)}
 function colls(s){return wk(s)?WE:WD}
 var dt=new Date(),date=dt.getFullYear()+'-'+pad(dt.getMonth()+1)+'-'+pad(dt.getDate()),cur,view='now';
 function nm(id){var a=id.split('-');return S.names[id]||((+a[0]+1)+'생활관 '+(+a[1]+1)+'번')}
@@ -317,7 +327,8 @@ function vRoster(){var h='<div class="grid">';
 function render(){
   if(!colls(date).some(function(x){return x[0]===cur}))cur=pickNow();
   document.getElementById('date').value=date;
-  var dw=document.getElementById('dow');dw.textContent='일월화수목금토'[dow(date)]+'요일 · '+(wk(date)?'주말':'주중');dw.className='dow'+(wk(date)?' we':'');
+  var dw=document.getElementById('dow'),W=wk(date);dw.textContent='일월화수목금토'[dow(date)]+'요일'+(HOL[date]?' · '+HOL[date]:'')+(wkSet(date)?' · 수동':'');dw.className='dow'+(W?' we':'');
+  [].forEach.call(document.querySelectorAll('#wkt button'),function(b){var on=(b.dataset.wk==='1')===W;b.className=on?'on':'';b.setAttribute('aria-pressed',on)});
   document.getElementById('td').style.display=date===today()?'none':'';
   document.getElementById('vt').innerHTML=VIEWS.map(function(v){return '<button data-v="'+v[0]+'"'+(v[0]===view?' class="on" aria-current="page"':'')+'>'+ic(v[0])+'<span>'+v[1]+'</span></button>'}).join('');
   document.getElementById('main').innerHTML={now:vNow,guard:vGuard,meal:vMeal,leave:vLeave,roster:vRoster}[view]()}
@@ -327,6 +338,9 @@ document.getElementById('pv').onclick=function(){setD(addD(date,-1))};
 document.getElementById('nx').onclick=function(){setD(addD(date,1))};
 function today(){var d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate())}
 document.getElementById('td').onclick=function(){setD(today())};
+document.getElementById('wkt').onclick=function(e){var t=e.target.closest('[data-wk]');if(!t)return;var v=t.dataset.wk;
+  if((v==='1')===wkAuto(date))delete S.hol[date];else S.hol[date]={v:v};
+  cur=pickNow();save();render();msg(date.slice(5).replace('-','/')+' '+(v==='1'?'주말':'주중')+' 일과로 표시합니다')};
 document.getElementById('vt').onclick=function(e){var t=e.target.closest('[data-v]');if(t){view=t.dataset.v;render();window.scrollTo(0,0)}};
 var main=document.getElementById('main');
 main.onclick=function(e){var t=e.target.closest('button');if(!t)return;var d=t.dataset;
@@ -538,7 +552,7 @@ function tb(b){var n=0;for(var p=0;p<NP;p++)if(!isVac(b+'-'+p))n++;return n}
 Object.keys(S.roles).forEach(function(k){if(ROLES.indexOf(S.roles[k])<0&&S.roles[k]!=='공석')delete S.roles[k]});
 
 var FS=null,room='',shadow={},unsubs=[],syncOn=false,ready=false,loaded={},rt=null;
-var SECS=[['g','g'],['meal','meal'],['duty','duty'],['manual','days']],hasData=false;
+var SECS=[['g','g'],['meal','meal'],['duty','duty'],['manual','days'],['hol','hol']],hasData=false;
 function jstr(o){return JSON.stringify(o)}
 function emp(v){return !v||(Array.isArray(v)?!v.some(Boolean):!Object.keys(v).length)}
 /* 근무·식청·당직·수동 열외를 칸 단위({칸: 값})로 바꿔 저장한다. 여러 명이 같은 날짜의 다른 칸을 동시에 고쳐도 서로 덮어쓰지 않는다. */
@@ -603,7 +617,7 @@ function push(){
   IDS.forEach(function(id){var v=jstr([S.names[id]||'',S.roles[id]||'']);
     if((shadow['p:'+id]||'["",""]')!==v){op(function(b){b.set(base.collection('people').doc(id),{name:S.names[id]||'',role:S.roles[id]||''},{merge:true})});shadow['p:'+id]=v}});
   if(S.bn!==undefined&&shadow.bn!==String(S.bn)){op(function(b){b.set(base.collection('meta').doc('main'),{bn:S.bn},{merge:true})});shadow.bn=String(S.bn)}
-  var dates={};[S.g,S.meal,S.duty,S.days].forEach(function(o){Object.keys(o).forEach(function(d){dates[d]=1})});
+  var dates={};[S.g,S.meal,S.duty,S.days,S.hol].forEach(function(o){Object.keys(o).forEach(function(d){dates[d]=1})});
   Object.keys(shadow).forEach(function(k){if(k.indexOf('c:')===0)dates[k.split(':')[1]]=1});
   Object.keys(dates).forEach(function(d){var data={},ch=0;
     SECS.forEach(function(sec){var now=cells(sec[0],S[sec[1]][d]),pre='c:'+d+':'+sec[0]+':',part={},pc=0;
