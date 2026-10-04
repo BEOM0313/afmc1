@@ -111,10 +111,13 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 /* 출타 */
 .bar{display:flex;gap:8px;align-items:center;justify-content:space-between;flex-wrap:wrap;margin-bottom:12px}
 .bar .hint{margin:0}
-.lv{display:grid;grid-template-columns:1fr 1fr;gap:10px 8px;align-items:end}
+.lv{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:10px 8px;align-items:end}
 .lv select,.lv input{width:100%;min-width:0;background-color:var(--tile);border-color:transparent}
 .lv label{display:flex;flex-direction:column;gap:4px;font-size:12px;font-weight:600;color:var(--mu);min-width:0}
 .lv label.full{grid-column:1/-1}
+.lv input[type=date]{-webkit-appearance:none;appearance:none;display:block;min-width:0;width:100%;text-align:left}
+.lv input[type=date]::-webkit-date-and-time-value{text-align:left;margin:0}
+.lv input[type=date]::-webkit-calendar-picker-indicator{margin-left:auto}
 .lv .del{grid-column:1/-1;justify-self:end;background:var(--warnbg);color:var(--warn);padding:8px 14px;min-height:40px;display:inline-flex;align-items:center;gap:4px}
 .lv .del svg{width:16px;height:16px}
 .empty{text-align:center;color:var(--mu);padding:32px 16px;grid-column:1/-1}
@@ -128,7 +131,7 @@ button:focus-visible,input:focus-visible,select:focus-visible,summary:focus-visi
 .lrd{text-align:right;font-size:14px;font-variant-numeric:tabular-nums}
 .lrd .st-on{color:var(--warn);font-weight:700}.lrd .st-f{color:var(--act);font-weight:700}
 .tag{font-size:12px;font-weight:700;padding:4px 8px;border-radius:8px;white-space:nowrap}
-.t-a{background:var(--ac2);color:var(--act)}.t-b{background:var(--olbg);color:var(--olt)}.t-c{background:var(--fill);color:var(--tx)}
+.t-a{background:var(--ac2);color:var(--act)}.t-b{background:var(--olbg);color:var(--olt)}.t-c{background:var(--fill);color:var(--tx)}.t-d{background:var(--warnbg);color:var(--warn)}
 .lr.open{background:var(--tile);border-radius:14px;border-top-color:transparent;margin:4px -6px;padding:0 6px}
 .lr.open+.lr{border-top-color:transparent}
 .lr .lv{padding:2px 2px 14px}
@@ -215,8 +218,13 @@ window.FB_CFG={apiKey:"AIzaSyBVQl4DJ47oI9ftw252kMEziYr_I7024w4",authDomain:"afmc
 <div id="mdl"></div>
 <script>
 var NB=7,NP=8;
-var RS=['휴가','평일외출','주말외출','주말외박','식당청소(아침)','식당청소(점심)','식당청소(저녁)','환경지킴이','근무','면회','장례','군종휴무','기타'];
-var LT=['휴가','평일외출','주말외출','주말외박'];
+var RS=['휴가','평일외출','주말외출','주말외박','입원','파견','식당청소(아침)','식당청소(점심)','식당청소(저녁)','환경지킴이','근무','면회','장례','군종휴무','기타'];
+var LT=['휴가','평일외출','주말외출','주말외박','입원','파견'];
+/* 입원·파견: 시작일부터 열외, 복귀일 저녁점호부터 참석. 복귀일을 비우면 '미정'(계속 열외). */
+var FAR='9999-12-31';
+function lngT(t){return t==='입원'||t==='파견'}
+function twoT(t){return t==='휴가'||t==='주말외박'||lngT(t)}
+function absent(i,D){D=D||date;return S.leaves.some(function(L){return L.who===i&&lngT(L.t)&&L.s&&L.s<=D&&D<=(L.e||FAR)})}
 var ROLES=['경비병','CC','탄약병','중대행정병','영현병','정훈병','어학병','정작병','조리병','군종병','문서수발병','시설병','통신병','행정병','보급병'];
 var WD=[['am','아침점호','06:45'],['mo','오전학출','08:10'],['af','오후학출','12:50'],['di','저녁식집','17:00'],['ev','저녁점호','21:20']];
 var WE=[['am','아침점호','07:10'],['lu','점심식집','12:00'],['di','저녁식집','17:00'],['ev','저녁점호','21:20']];
@@ -258,7 +266,8 @@ function pickNow(){var d=new Date(),m=d.getHours()*60+d.getMinutes(),l=colls(dat
 function autos(c,id,D){
   var r=[],we=wk(D),start=false,vac=false;
   S.leaves.forEach(function(L){if(L.who!==id||!L.s)return;
-    var s=L.s,e=L.e||L.s;
+    var s=L.s,e=L.e||(lngT(L.t)?FAR:L.s);
+    if(lngT(L.t)){if(D>=s&&D<=e&&!(D===e&&c==='ev'))r.push(L.t);return}
     if(L.t==='평일외출'){if(D===s&&c==='di')r.push(L.t);return}
     if(L.t==='주말외출'){if(D===s){start=true;if(c!=='am'&&c!=='ev')r.push(L.t)}return}
     if(D<s||D>e)return;
@@ -284,7 +293,8 @@ function stats(c){var out=[],ex=0,T=0;
   return {out:out,tot:T,ex:ex,cur:T-ex}}
 /* ok: 보직 제한 필터. 이미 들어가 있는 사람(v)은 그대로 보여 준다. */
 function opts(v,ok){var h='<option value="">-</option>';IDS.forEach(function(i){if(isVac(i)&&i!==v)return;if(!own(i)&&i!==v)return;if(ok&&!ok(i)&&i!==v)return;h+='<option value="'+i+'"'+(i===v?' selected':'')+'>'+esc(nm(i))+(S.roles[i]&&S.roles[i]!=='공석'?' · '+S.roles[i]:'')+(own(i)?'':' ['+(+i.split('-')[0]+1)+'생활관]')+'</option>'});return h}
-function sl(lb,attr,v,ok){return '<label>'+lb+'<select '+attr+(v&&!own(v)?' disabled':'')+'>'+opts(v,ok)+'</select></label>'}
+function sl(lb,attr,v,ok){return '<label>'+lb+'<select '+attr+(v&&!own(v)?' disabled':'')+'>'+opts(v,function(i){return !absent(i)&&(!ok||ok(i))})+'</select></label>'}
+function notCook(i){return S.roles[i]!=='조리병'}
 function isRole(r){return function(i){return S.roles[i]===r}}
 var NODUTY=['경비병','CC','조리병','영현병','정훈병'];
 function dutyOk(i){return NODUTY.indexOf(S.roles[i])<0}
@@ -343,18 +353,18 @@ function vGuardS(){var we=wk(date),g=S.g[date]||{};
   return h+'</div>'}
 function vMeal(){var m=S.meal[date]||{},du=S.duty[date]||[],h='<div class="grid">';
   [['am','아침식청'],['lu','점심식청'],['di','저녁식청']].forEach(function(x){h+='<div class="card"><h2>'+x[1]+'<em>4명</em></h2><div class="sl">';
-    for(var i=0;i<4;i++)h+=sl(i+1+'번','data-m="'+x[0]+i+'"',m[x[0]+i]);h+='</div></div>'});
+    for(var i=0;i<4;i++)h+=sl(i+1+'번','data-m="'+x[0]+i+'"',m[x[0]+i],notCook);h+='</div></div>'});
   h+='<div class="card"><h2>당직 ('+(wk(date)?'주말':'주중')+')</h2><div class="sl">'+sl('1층 당직','data-d="0"',du[0],dutyOk)+sl('2층 당직','data-d="1"',du[1],dutyOk)+'</div></div>';
   return h+'</div>'}
 /* 출타 탭: 목록(필터·정렬, 줄을 누르면 펼쳐서 수정) / 달력(날짜별 출타 인원) */
 var lvMode='list',lvSort='date',lvFilt='now',lvOpen=-1,calM='',calSel='';
-var LTC={'휴가':'t-a','주말외박':'t-b','평일외출':'t-c','주말외출':'t-c'};
+var LTC={'휴가':'t-a','주말외박':'t-b','평일외출':'t-c','주말외출':'t-c','입원':'t-d','파견':'t-d'};
 function onA(b){return b?' class="on" aria-pressed="true"':' aria-pressed="false"'}
-function lvEnd(L){return(L.t==='휴가'||L.t==='주말외박')?(L.e||L.s):L.s}
+function lvEnd(L){return twoT(L.t)?(L.e||(lngT(L.t)?FAR:L.s)):L.s}
 function lvAll(){return S.leaves.map(function(L,i){return {L:L,i:i}}).filter(function(x){return !x.L.who||own(x.L.who)})}
 function dd(a,b){return Math.round((Date.parse(b+'T00:00:00Z')-Date.parse(a+'T00:00:00Z'))/864e5)}
-function md(s){return s?(+s.slice(5,7))+'/'+(+s.slice(8,10)):'-'}
-function lvSt(L,T){var e=lvEnd(L);if(!L.s)return {k:'x',t:'날짜 미입력'};if(L.s>T)return {k:'f',t:'D-'+dd(T,L.s)};if(e<T)return {k:'p',t:'종료'};return {k:'on',t:e===T?'오늘 복귀':'출타 중'}}
+function md(s){return s===FAR?'미정':s?(+s.slice(5,7))+'/'+(+s.slice(8,10)):'-'}
+function lvSt(L,T){var e=lvEnd(L);if(!L.s)return {k:'x',t:'날짜 미입력'};if(L.s>T)return {k:'f',t:'D-'+dd(T,L.s)};if(e<T)return {k:'p',t:'종료'};return {k:'on',t:e===T?'오늘 복귀':lngT(L.t)?L.t+' 중':'출타 중'}}
 function rmOf(id){return id?+id.split('-')[0]:-1}
 function vLeave(){
   return '<div class="seg"><button data-lm="list"'+onA(lvMode==='list')+'>'+ic('rpt')+' 목록</button><button data-lm="cal"'+onA(lvMode==='cal')+'>'+ic('cal')+' 달력</button></div>'+(lvMode==='cal'?vCal():vLeaveList())}
@@ -380,13 +390,13 @@ function vLeaveList(){var T=today(),all=lvAll(),cnt={now:0,past:0,all:all.length
   xs.forEach(function(x){var G=grp(x);
     if(G!==g){if(g!==null)h+='</div>';g=G;n=xs.filter(function(y){return grp(y)===G}).length;h+='<div class="card lg"><h2>'+esc(G)+'<em>'+n+'명</em></h2>'}
     h+=lvRow(x,T)});
-  return h+'</div></div><p class="hint">줄을 누르면 펼쳐서 수정할 수 있습니다. 휴가·외박은 출발일~복귀일, 외출은 날짜 하나를 입력하세요.</p>'}
-function lvRow(x,T){var L=x.L,i=x.i,op=lvOpen===i||!L.who,st=lvSt(L,T),two=L.t==='휴가'||L.t==='주말외박',e=lvEnd(L);
+  return h+'</div></div><p class="hint">줄을 누르면 펼쳐서 수정할 수 있습니다. 휴가·외박은 출발일~복귀일, 외출은 날짜 하나를 입력하세요. 입원·파견은 복귀일을 모르면 비워 두세요(복귀일 저녁점호부터 참석).</p>'}
+function lvRow(x,T){var L=x.L,i=x.i,op=lvOpen===i||!L.who,st=lvSt(L,T),two=twoT(L.t),e=lvEnd(L),lg=lngT(L.t);
   var h='<div class="lr'+(op?' open':'')+'"><button class="lrb" data-lo="'+i+'" aria-expanded="'+op+'"><span class="tag '+(LTC[L.t]||'t-c')+'">'+esc(L.t)+'</span>'+
     '<span class="lrn">'+(L.who?esc(nm(L.who)):'인원 미선택')+'<small>'+(L.who?(rmOf(L.who)+1)+'생활관'+(S.roles[L.who]?' · '+esc(S.roles[L.who]):''):'아래에서 인원을 고르세요')+'</small></span>'+
-    '<span class="lrd">'+md(L.s)+(two&&e!==L.s?' ~ '+md(e):'')+'<small class="st-'+st.k+'">'+st.t+(two&&L.s?' · '+(dd(L.s,e)+1)+'일':'')+'</small></span></button>';
+    '<span class="lrd">'+md(L.s)+(two&&e!==L.s?' ~ '+md(e):'')+'<small class="st-'+st.k+'">'+st.t+(two&&L.s&&e!==FAR?' · '+(dd(L.s,e)+1)+'일':'')+'</small></span></button>';
   if(op)h+='<div class="lv"><select data-l="'+i+'.who" aria-label="인원">'+opts(L.who)+'</select><select data-l="'+i+'.t" aria-label="종류">'+LT.map(function(t){return '<option'+(t===L.t?' selected':'')+'>'+t+'</option>'}).join('')+'</select>'+
-    '<label'+(two?'':' class="full"')+'>'+(two?'출발일':'날짜')+'<input type="date" data-l="'+i+'.s" value="'+esc(L.s)+'"></label>'+(two?'<label>복귀일<input type="date" data-l="'+i+'.e" value="'+esc(L.e)+'"></label>':'')+
+    '<label'+(two?'':' class="full"')+'>'+(lg?'시작일':two?'출발일':'날짜')+'<input type="date" data-l="'+i+'.s" value="'+esc(L.s)+'"></label>'+(two?'<label>'+(lg?'복귀일 (모르면 비움)':'복귀일')+'<input type="date" data-l="'+i+'.e" value="'+esc(L.e)+'"></label>':'')+
     '<button data-act="del" data-i="'+i+'" class="del">'+ic('del')+'삭제</button></div>';
   return h+'</div>'}
 function vCal(){if(!calM)calM=date.slice(0,7);if(!calSel)calSel=date;
@@ -404,7 +414,7 @@ function vCal(){if(!calM)calM=date.slice(0,7);if(!calSel)calSel=date;
   var sel=outOn(calSel),DN='일월화수목금토';
   h+='<div class="card lg"><h2>'+md(calSel)+' ('+DN[dow(calSel)]+') 출타<em>'+sel.length+'명</em></h2>';
   if(!sel.length)h+='<p class="hint">이 날 출타자가 없습니다.</p>';
-  sel.sort(function(a,b){return rmOf(a.L.who)-rmOf(b.L.who)||String(nm(a.L.who)).localeCompare(nm(b.L.who),'ko')}).forEach(function(x){var L=x.L,e=lvEnd(L),two=L.t==='휴가'||L.t==='주말외박';
+  sel.sort(function(a,b){return rmOf(a.L.who)-rmOf(b.L.who)||String(nm(a.L.who)).localeCompare(nm(b.L.who),'ko')}).forEach(function(x){var L=x.L,e=lvEnd(L),two=twoT(L.t);
     var ph=L.s===calSel&&two?'출발일':e===calSel&&two?'복귀일':'';
     h+='<div class="lr"><div class="lrb"><span class="tag '+(LTC[L.t]||'t-c')+'">'+esc(L.t)+'</span><span class="lrn">'+esc(nm(L.who))+'<small>'+(rmOf(L.who)+1)+'생활관'+(S.roles[L.who]?' · '+esc(S.roles[L.who]):'')+'</small></span><span class="lrd">'+md(L.s)+(two&&e!==L.s?' ~ '+md(e):'')+(ph?'<small class="st-on">'+ph+'</small>':'')+'</span></div></div>'});
   return h+'<button class="cl" data-go="'+calSel+'">이 날짜 현황 보기</button></div></div>'}
@@ -468,7 +478,7 @@ main.onchange=function(e){var t=e.target,d=t.dataset,v=t.value;
   else if(d.wj!==undefined)setWj(d.wj,t.checked);
   else if(d.n!==undefined)S.names[d.n]=v.trim();
   else if(d.r!==undefined)S.roles[d.r]=v;
-  else if(d.l!==undefined){var q=d.l.split('.'),L=S.leaves[+q[0]];L[q[1]]=v;if(q[1]==='t'&&v!=='휴가'&&v!=='주말외박')L.e=L.s}
+  else if(d.l!==undefined){var q=d.l.split('.'),L=S.leaves[+q[0]];L[q[1]]=v;if(q[1]==='t'){if(!twoT(v))L.e=L.s;else if(lngT(v))L.e=''}}
   else return;
   save();render()};
 
@@ -563,7 +573,7 @@ function book(ex){
   IDS.forEach(function(id){var a=id.split('-');r.push([+a[0]+1,+a[1]+1,nm(id),S.roles[id]||''])});add('인원',r);
   r=[['이름','종류','출발일','복귀일']];
   if(ex)r.push([nm('0-0'),'휴가',date,addD(date,3)]);
-  else S.leaves.forEach(function(L){r.push([L.who?nm(L.who):'',L.t,L.s,(L.t==='휴가'||L.t==='주말외박')?L.e:''])});
+  else S.leaves.forEach(function(L){r.push([L.who?nm(L.who):'',L.t,L.s,twoT(L.t)?L.e:''])});
   add('출타',r);
   r=[['날짜','시간','구분','순번','이름']];
   if(ex)r.push([date,'06-08','경비',1,nm('0-1')],[date,'06-08','CC',1,nm('0-2')]);
@@ -599,7 +609,7 @@ function importXlsx(f){
     var map={};IDS.forEach(function(i){map[nm(i)]=i});
     function who(n){n=String(n).trim();if(!n)return '';var id=map[n];if(!id)err++;return id||''}
     var lv=rows('출타');
-    if(lv){done.push('출타');S.leaves=[];lv.forEach(function(r){var id=who(r['이름']),t=r['종류'];if(!id||LT.indexOf(t)<0)return;var s=dstr(r['출발일']);if(!s)return;S.leaves.push({who:id,t:t,s:s,e:dstr(r['복귀일'])||s})})}
+    if(lv){done.push('출타');S.leaves=[];lv.forEach(function(r){var id=who(r['이름']),t=r['종류'];if(!id||LT.indexOf(t)<0)return;var s=dstr(r['출발일']);if(!s)return;S.leaves.push({who:id,t:t,s:s,e:dstr(r['복귀일'])||(lngT(t)?'':s)})})}
     var gd=rows('경계근무');
     if(gd){done.push('경계근무');S.g={};gd.forEach(function(r){var id=who(r['이름']),d=dstr(r['날짜']),h=parseInt(r['시간'],10),n=(+r['순번'])-1;if(!id||!d||isNaN(h))return;
       (S.g[d]||(S.g[d]={}))[h+'-'+(r['구분']==='CC'?'c0':r['구분']==='조장석'?'g2':'g'+Math.min(Math.max(n,0),1))]=id})}
@@ -616,7 +626,8 @@ var GUN={am:1,ev:1};
 function gs(D,id){var g=S.g[D]||{},o={day:false,night:false,early:false};
   HRS.forEach(function(H){if(g[H+'-g0']!==id&&g[H+'-g1']!==id)return;if(H===6)o.early=true;else if(H>=8&&H<=20)o.day=true;else o.night=true});return o}
 function gunR(c,id,D){var r=[];
-  S.leaves.forEach(function(L){if(L.who!==id||L.t!=='휴가'||!L.s)return;var s=L.s,e=L.e||L.s;if(D<s||D>e)return;
+  S.leaves.forEach(function(L){if(L.who===id&&lngT(L.t)&&L.s){var e3=L.e||FAR;if(D>=L.s&&D<=e3&&!(D===e3&&c==='ev'))r.push(L.t);return}
+    if(L.who!==id||L.t!=='휴가'||!L.s)return;var s=L.s,e=L.e||L.s;if(D<s||D>e)return;
     if(D===s){if(c==='ev')r.push('휴가')}else if(D===e){if(c==='am')r.push('휴가')}else r.push('휴가')});
   var a=gs(D,id),p=gs(addD(D,-1),id),n=gs(addD(D,1),id);
   if(c==='ev'&&(a.day||a.night||n.early))r.push('경비');
